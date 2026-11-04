@@ -34,3 +34,96 @@ on property:sys.usb.config=mtp,adb && property:sys.usb.ffs.ready=1 && property:s
     symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f2
     write /config/usb_gadget/g1/UDC ${sys.usb.controller}
     setprop sys.usb.state ${sys.usb.config}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FBE decryption: stock HyperOS 306 MiTEE stack (tee-supplicant, KeyMint 3.0,
+# Gatekeeper) — method proven on duchamp (same SoC/TEE), adapted to degas.
+#
+# degas difference: the TEE REE-FS store (dirf.db + objects, incl. KeyMint's
+# SecureDeletionSecrets) lives in /mnt/vendor/persist/data (tee-supplicant
+# strings + on-device listing). protect1/2 only hold modem files, so only
+# persist is mounted. It must be mounted rw, as in stock: the TA may write.
+# ═══════════════════════════════════════════════════════════════════════════
+
+on fs
+    mkdir /mnt/vendor 0755 root root
+    mkdir /mnt/vendor/persist 0771 root system
+    # stock fstab.mt6897 options; no fsck, never formatted from here
+    mount ext4 /dev/block/by-name/persist /mnt/vendor/persist wait noatime nosuid nodev noauto_da_alloc,commit=1,nodelalloc
+    restorecon_recursive /mnt/vendor/persist
+    mkdir /mnt/vendor/persist/data 0755 system system
+    mkdir /mnt/vendor/persist/fdsd 0755 system system
+
+    # device nodes, as stock tee-supplicant.rc (recovery leaves them root 0600)
+    chmod 0660 /dev/tee0
+    chmod 0660 /dev/teepriv0
+    chown system system /dev/tee0
+    chown system system /dev/teepriv0
+    chmod 0660 /dev/rpmb0
+    chown system system /dev/rpmb0
+    chmod 0660 /dev/0:0:0:49476
+    chown system system /dev/0:0:0:49476
+    chmod 0660 /dev/ufs-bsg0
+    chown system system /dev/ufs-bsg0
+
+    setprop vendor.teefs_state ready
+    setprop ro.hardware.gatekeeper mitee
+
+# Vendor binaries must resolve their own copies first: some stock libs share a
+# name with the OFRP-built ones (e.g. lib_android_keymaster_keymint_utils.so).
+service tee-supplicant /vendor/bin/tee-supplicant
+    user system
+    group system secure_element nfc
+    capabilities SYS_RAWIO
+    setenv LD_LIBRARY_PATH /vendor/lib64:/system/lib64
+    seclabel u:r:recovery:s0
+    disabled
+
+service vendor.keymint-mitee /vendor/bin/hw/android.hardware.security.keymint@3.0-service.mitee
+    user system
+    group system drmrpc
+    setenv LD_LIBRARY_PATH /vendor/lib64:/system/lib64
+    seclabel u:r:recovery:s0
+    disabled
+
+service vendor.gatekeeper_mitee /vendor/bin/hw/android.hardware.gatekeeper-service.mitee
+    user system
+    group system
+    setenv LD_LIBRARY_PATH /vendor/lib64:/system/lib64
+    seclabel u:r:recovery:s0
+    disabled
+
+# Gatekeeper must come up after KeyMint (duchamp: HAT signature race, -26)
+service delayed_gatekeeper /system/bin/sh -c "sleep 1; start vendor.gatekeeper_mitee"
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+# Sets KeyMint's OS version / patch levels from the device build.props, then
+# crypto.ready=1. Fail-closed (see the script).
+service degas_prepdecrypt /system/bin/sh /system/bin/degas_prepdecrypt.sh
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+on property:ro.crypto.state=encrypted
+    start degas_prepdecrypt
+
+on property:crypto.ready=1 && property:vendor.teefs_state=ready
+    start tee-supplicant
+    start vendor.keymint-mitee
+    start delayed_gatekeeper
+
+on property:ro.crypto.state=unsupported
+    stop vendor.gatekeeper_mitee
+    stop vendor.keymint-mitee
+    stop tee-supplicant
+
+on property:twrp.all.users.decrypted=true
+    stop vendor.gatekeeper_mitee
+    stop vendor.keymint-mitee
+    stop tee-supplicant
