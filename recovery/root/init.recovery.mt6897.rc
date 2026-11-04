@@ -143,6 +143,17 @@ on property:crypto.ready=1 && property:vendor.teefs_state=ready
     start tee-supplicant
     start vendor.keymint-mitee
     start delayed_gatekeeper
+    # eSE power/SPI driver (stock 306 vendor_dlkm; Android loads it from there,
+    # recovery only has the vendor_boot modules). Without /dev/p73 the eSE HAL
+    # fails: "open dev p73 failed", "power on eSE, chip type no support".
+    # p73 depends on spi-mt65xx (vendor_boot) and nxp_i2c.
+    insmod /vendor/lib/modules/nxp_i2c.ko
+    insmod /vendor/lib/modules/p73.ko
+    wait /dev/p73 3
+    chown nfc nfc /dev/nq-nci
+    chmod 0660 /dev/nq-nci
+    chown nfc nfc /dev/p73
+    chmod 0660 /dev/p73
     start vendor.secure_element_hal_service
     start se_omapi_recovery
     start vendor.weaver_nxp
