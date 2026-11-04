@@ -121,12 +121,18 @@ TW_CUSTOM_BATTERY_PATH := /sys/class/power_supply/battery
 BOARD_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy
 
 # ── Encryption ────────────────────────────────────────
-# FBE decrypt is not achievable from recovery on this device (TEE Root-of-Trust
-# binding — see docs/RESEARCH.md), so the crypto stack is intentionally NOT
-# included. It pulled in ~11 MB of keymaster/keymint/gatekeeper/vold libs that
-# would push the combined vendor_boot over the 64 MB partition. /data is shown
-# as encrypted/unmountable; Format Data still works.
-# TW_INCLUDE_CRYPTO / TW_INCLUDE_CRYPTO_FBE / TW_INCLUDE_METADATA_DECRYPT — removed.
+# FBE v2 + metadata encryption (dm-default-key), KeyMint 3.0 / Gatekeeper in
+# MiTEE: stock 306 blobs + init in recovery/root (see init.recovery.mt6897.rc).
+TW_INCLUDE_CRYPTO := true
+TW_INCLUDE_CRYPTO_FBE := true
+TW_INCLUDE_FBE_METADATA_DECRYPT := true
+BOARD_USES_METADATA_PARTITION := true
+TW_USE_FSCRYPT_POLICY := 2
+OF_FIX_DECRYPTION_ON_DATA_MEDIA := 1
+# PLATFORM_SECURITY_PATCH := 2099-12-31 is deliberately NOT used: KeyMint's
+# OS version / patch levels are set at runtime from the device build.props by
+# degas_prepdecrypt.sh. A recovery patch level above Android's would make
+# KeyMint request a key *upgrade* and vold would rewrite the key blob.
 
 # ── AVB ───────────────────────────────────────────────
 BOARD_AVB_ENABLE                          := true
