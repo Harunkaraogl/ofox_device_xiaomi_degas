@@ -1,5 +1,9 @@
 DEVICE_PATH := device/xiaomi/degas
 
+# Stock kernel modules (.ko, ELF) are shipped via PRODUCT_COPY_FILES into the
+# vendor ramdisk (see device.mk) — this is a TARGET_NO_KERNEL build.
+BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+
 # Arch
 TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
