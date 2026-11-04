@@ -129,6 +129,12 @@ TW_INCLUDE_FBE_METADATA_DECRYPT := true
 BOARD_USES_METADATA_PARTITION := true
 TW_USE_FSCRYPT_POLICY := 2
 OF_FIX_DECRYPTION_ON_DATA_MEDIA := 1
+# logd + logcat: with TW_INCLUDE_CRYPTO the recovery binary and libtar link
+# libsysutils, which OFRP only installs together with logd. Without it the
+# recovery service fails to link ("libsysutils.so not found") and the device
+# sits on the boot logo. logcat is also needed: keystore2 logs only to logd.
+TWRP_INCLUDE_LOGCAT := true
+TARGET_USES_LOGD := true
 # PLATFORM_SECURITY_PATCH := 2099-12-31 is deliberately NOT used: KeyMint's
 # OS version / patch levels are set at runtime from the device build.props by
 # degas_prepdecrypt.sh. A recovery patch level above Android's would make
