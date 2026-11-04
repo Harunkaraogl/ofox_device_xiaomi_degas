@@ -29,6 +29,15 @@ TARGET_BOOTLOADER_BOARD_NAME := degas
 BOARD_BOOT_HEADER_VERSION := 4
 BOARD_VENDOR_BOOT_HEADER_VERSION := 4
 BOARD_MKBOOTIMG_ARGS += --header_version 4 --dtb $(TARGET_PREBUILT_DTB)
+# The vendor_boot rule passes only --base/--pagesize; the BOARD_*_OFFSET vars
+# below are NOT used for vendor_boot, so pass them explicitly. Without this the
+# header gets mkbootimg defaults (kernel 0x8000, ramdisk 0x1000000, tags 0x100,
+# dtb 0x1f00000) and the device dies before the screen comes on. Values = stock
+# vendor_boot (kernel 0x40000000, ramdisk 0x66f00000, tags/dtb 0x47c80000).
+BOARD_MKBOOTIMG_ARGS += --kernel_offset $(BOARD_KERNEL_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --tags_offset $(BOARD_TAGS_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --dtb_offset $(BOARD_DTB_OFFSET)
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_RAMDISK_USE_LZ4 := true
 BOARD_KERNEL_BASE        := 0x00000000
@@ -42,7 +51,9 @@ TARGET_PREBUILT_DTB := $(DEVICE_PATH)/prebuilt/dtb/degas.dtb
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery.fstab
 
 # CMDLINE
-BOARD_KERNEL_CMDLINE := console=tty0 root=/dev/ram nosoftlockup transparent_hugepage=never kasan.page_alloc.sample=1 disable_dma32=on swiotlb=noforce bootopt=64S3,32N2,64N2 androidboot.selinux=permissive printk.disable_uart=0
+# Vendor cmdline exactly as in the stock vendor_boot (and the working Advnirr
+# image, which reused the stock header). Kernel cmdline itself comes from boot.
+BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2
 
 # ========================================================
 # RECOVERY GKI v4 (vendor_boot)
