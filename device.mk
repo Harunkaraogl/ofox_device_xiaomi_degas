@@ -1,7 +1,9 @@
 # Copyright (C) 2024 The Android Open Source Project
 # SPDX-License-Identifier: Apache-2.0
 
-LOCAL_PATH := device/$(PRODUCT_MANUFACTURER)/$(PRODUCT_DEVICE)
+# Literal path: PRODUCT_MANUFACTURER/PRODUCT_DEVICE are set in twrp_degas.mk
+# only after this file is inherited, so they are empty here.
+LOCAL_PATH := device/xiaomi/degas
 
 # A/B
 AB_OTA_POSTINSTALL_CONFIG += \
