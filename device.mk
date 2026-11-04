@@ -60,3 +60,11 @@ PRODUCT_COPY_FILES += \
 # needs it to mount system/vendor/... (and the ColorOS-port my_* partitions).
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/vendor_ramdisk/first_stage_ramdisk/fstab.mt6897:$(TARGET_COPY_OUT_VENDOR_RAMDISK)/first_stage_ramdisk/fstab.mt6897
+
+# task_profiles.json for the recovery ramdisk. bootable/recovery builds it
+# (TWRP_REQUIRED_MODULES) but its copy into recovery/root is commented out
+# (bootable/recovery/prebuilt/Android.mk). Without it libprocessgroup aborts
+# logd ("Failed to read task profiles from /etc/task_profiles.json").
+# Same source as the system copy, so it matches the built libprocessgroup.
+PRODUCT_COPY_FILES += \
+    system/core/libprocessgroup/profiles/task_profiles.json:$(TARGET_COPY_OUT_RECOVERY)/root/system/etc/task_profiles.json
