@@ -78,14 +78,13 @@ TARGET_COPY_OUT_VENDOR := vendor
 
 # TWRP Settings
 TW_THEME := portrait_hdpi
-# Maintainer tag shown next to the version (e.g. "3.7.1_12-Advnirr").
-TW_DEVICE_VERSION := Advnirr
+# Version tag (OrangeFox port of the Advnirr TWRP tree)
+TW_DEVICE_VERSION := degas
 RECOVERY_SDCARD_ON_DATA := true
 TARGET_RECOVERY_PIXEL_FORMAT := BGRA_8888
 TW_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
 TW_MAX_BRIGHTNESS := 2047
 TW_DEFAULT_BRIGHTNESS := 1200
-TW_HAPTICS_OEM_VIBRATOR := true
 # Touch and display
 BOARD_HAS_MTK_HARDWARE := true
 TW_INPUT_BLACKLIST := "hbtp_vm"
@@ -137,3 +136,26 @@ TARGET_COPY_OUT_PRODUCT                     := product
 TARGET_COPY_OUT_SYSTEM_EXT                  := system_ext
 
 TW_INCLUDE_RESETPROP := true
+
+# ── OrangeFox ────────────────────────────────────────────────────────────────
+# Names verified against bootable/recovery/orangefox.mk (fox_16.0). FOX_* vars
+# read by vendor/recovery/OrangeFox_A16.sh are exported from vendorsetup.sh.
+OF_MAINTAINER := Unofficial
+OF_FORCE_PREBUILT_KERNEL := 1
+OF_USE_LZ4_COMPRESSION := 1
+OF_USE_MAGISKBOOT := 1
+OF_USE_MAGISKBOOT_FOR_ALL_PATCHES := 1
+OF_NO_REFLASH_CURRENT_ORANGEFOX := 1
+OF_DONT_KEEP_LOG_HISTORY := 1
+OF_LOOP_DEVICE_ERRORS_TO_LOG := 1
+OF_ENABLE_LPTOOLS := 1
+
+# Screen: 1220x2712, centred punch-hole. OF_SCREEN_H is in 1080-wide theme
+# units: 2712 * 1080 / 1220 = 2400.
+OF_SCREEN_H := 2400
+OF_STATUS_H := 96
+OF_STATUS_INDENT_LEFT := 48
+OF_STATUS_INDENT_RIGHT := 48
+# 1 = no clock in the centre (camera hole)
+OF_CLOCK_POS := 1
+OF_ALLOW_DISABLE_NAVBAR := 0
