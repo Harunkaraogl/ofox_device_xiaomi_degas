@@ -6,6 +6,21 @@ on early-init
 on boot
     write /sys/class/touch/touch_dev/enable_touch_raw 0
     write /sys/class/touch/touch_dev/panel_display "U"
+    start degas_slotprop
+
+# AnyKernel3 (and other zips using its update-binary) bind the ROM's /system
+# over ours and mount APEXes with `-t ext4` only; ColorOS/HyperOS APEXes are
+# erofs, so the ROM's getprop (linker in com.android.runtime) cannot run. AK3
+# then falls back to default.prop/build.prop + /proc/cmdline for the slot, but
+# on degas androidboot.slot_suffix is only in /proc/bootconfig -> no slot ->
+# looks for by-name/boot -> "Unable to determine boot partition. Aborting...".
+# Expose the boot slot in /prop.default (rootfs, rebuilt every boot).
+service degas_slotprop /system/bin/sh -c "grep -q '^ro.boot.slot_suffix=' /prop.default || echo ro.boot.slot_suffix=${ro.boot.slot_suffix} >> /prop.default"
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
 
 # USB: force the ConfigFS gadget. TWRP's init.rc hardcodes sys.usb.configfs=0,
 # which drives the legacy /sys/class/android_usb path — that node does not exist
