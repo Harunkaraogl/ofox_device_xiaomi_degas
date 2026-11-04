@@ -48,7 +48,7 @@ BOARD_DTB_OFFSET         := 0x47c80000
 TARGET_NO_KERNEL := true
 BOARD_KERNEL_IMAGE_NAME := Image
 TARGET_PREBUILT_DTB := $(DEVICE_PATH)/prebuilt/dtb/degas.dtb
-TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery.fstab
+TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/root/system/etc/recovery.fstab
 
 # CMDLINE
 # Vendor cmdline exactly as in the stock vendor_boot (and the working Advnirr
