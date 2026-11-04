@@ -68,3 +68,10 @@ PRODUCT_COPY_FILES += \
 # Same source as the system copy, so it matches the built libprocessgroup.
 PRODUCT_COPY_FILES += \
     system/core/libprocessgroup/profiles/task_profiles.json:$(TARGET_COPY_OUT_RECOVERY)/root/system/etc/task_profiles.json
+
+# UBSan runtime for the stock eSE HAL (vendor.xiaomi.hardware.secure_element-service
+# NEEDs libclang_rt.ubsan_standalone-aarch64-android.so, which lives in the
+# Android system partition). Same toolchain as this build (ClangDefaultVersion);
+# provides all 4 __ubsan_handle_* symbols the HAL imports.
+PRODUCT_COPY_FILES += \
+    prebuilts/clang/host/linux-x86/clang-r547379/lib/clang/20/lib/linux/libclang_rt.ubsan_standalone-aarch64-android.so:$(TARGET_COPY_OUT_RECOVERY)/root/vendor/lib64/libclang_rt.ubsan_standalone-aarch64-android.so

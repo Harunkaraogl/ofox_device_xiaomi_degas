@@ -135,6 +135,13 @@ OF_FIX_DECRYPTION_ON_DATA_MEDIA := 1
 # sits on the boot logo. logcat is also needed: keystore2 logs only to logd.
 TWRP_INCLUDE_LOGCAT := true
 TARGET_USES_LOGD := true
+# Native OMAPI service for the Weaver HAL (device/xiaomi/degas/omapi): built as
+# a vendor binary, copied into the recovery ramdisk's /vendor/bin/hw.
+TW_RECOVERY_ADDITIONAL_RELINK_VENDOR_HW_BINARY_FILES += $(TARGET_OUT_VENDOR_EXECUTABLES)/hw/se_omapi_recovery
+# Use only recovery.fstab. Otherwise TWRP re-parses the vendor fstab
+# (/etc/additional.fstab) and its stock /metadata options replace ours, so
+# /metadata got mounted rw although recovery.fstab says ro.
+TW_SKIP_ADDITIONAL_FSTAB := true
 # PLATFORM_SECURITY_PATCH := 2099-12-31 is deliberately NOT used: KeyMint's
 # OS version / patch levels are set at runtime from the device build.props by
 # degas_prepdecrypt.sh. A recovery patch level above Android's would make

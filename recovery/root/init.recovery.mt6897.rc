@@ -113,17 +113,52 @@ service degas_prepdecrypt /system/bin/sh /system/bin/degas_prepdecrypt.sh
 on property:ro.crypto.state=encrypted
     start degas_prepdecrypt
 
+# ── Weaver (synthetic-password CE keys) ─────────────────────────────────────
+# Stock chain: weaver-service.nxp -> ese_weaver.nxp.so -> OMAPI -> eSE HAL
+# (ISecureElement/eSE1, MiTEE TA 2e8fade5-...). In Android OMAPI is the Java
+# SecureElement app; here it is se_omapi_recovery (device/.../omapi).
+service vendor.secure_element_hal_service /vendor/bin/hw/vendor.xiaomi.hardware.secure_element-service
+    user system
+    group system secure_element nfc
+    setenv LD_LIBRARY_PATH /vendor/lib64:/system/lib64
+    seclabel u:r:recovery:s0
+    disabled
+
+service se_omapi_recovery /vendor/bin/hw/se_omapi_recovery
+    user system
+    group system
+    setenv LD_LIBRARY_PATH /vendor/lib64:/system/lib64
+    seclabel u:r:recovery:s0
+    disabled
+
+service vendor.weaver_nxp /vendor/bin/hw/android.hardware.weaver-service.nxp
+    user 2902
+    group system drmrpc
+    capabilities WAKE_ALARM
+    setenv LD_LIBRARY_PATH /vendor/lib64:/system/lib64
+    seclabel u:r:recovery:s0
+    disabled
+
 on property:crypto.ready=1 && property:vendor.teefs_state=ready
     start tee-supplicant
     start vendor.keymint-mitee
     start delayed_gatekeeper
+    start vendor.secure_element_hal_service
+    start se_omapi_recovery
+    start vendor.weaver_nxp
 
 on property:ro.crypto.state=unsupported
+    stop vendor.weaver_nxp
+    stop se_omapi_recovery
+    stop vendor.secure_element_hal_service
     stop vendor.gatekeeper_mitee
     stop vendor.keymint-mitee
     stop tee-supplicant
 
 on property:twrp.all.users.decrypted=true
+    stop vendor.weaver_nxp
+    stop se_omapi_recovery
+    stop vendor.secure_element_hal_service
     stop vendor.gatekeeper_mitee
     stop vendor.keymint-mitee
     stop tee-supplicant
