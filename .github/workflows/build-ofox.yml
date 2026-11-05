@@ -1,0 +1,204 @@
+name: Build OrangeFox
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_branch:
+        description: OrangeFox manifest branch
+        required: true
+        default: fox_16.0
+        type: string
+      rom_name:
+        description: Short name used in the artifact name
+        required: true
+        default: stock
+        type: string
+      vendor_boot_url:
+        description: URL of a matching stock vendor_boot image with its vendor ramdisk modules
+        required: false
+        type: string
+      vendor_boot_sha256:
+        description: SHA-256 of vendor_boot_url (optional but recommended)
+        required: false
+        type: string
+      blob_archive_url:
+        description: Optional URL of a tar.gz or zip archive containing device-tree-relative ROM blobs
+        required: false
+        type: string
+      blob_archive_sha256:
+        description: SHA-256 of blob_archive_url (optional)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orangefox-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      FOX_MANIFEST_URL: https://gitlab.com/OrangeFox/sync.git
+      FOX_MANIFEST_BRANCH: ${{ inputs.manifest_branch }}
+      ROM_NAME: ${{ inputs.rom_name }}
+
+    steps:
+      - name: Check out the fork
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache cpio curl flex g++-multilib \
+            gcc-multilib git gnupg gperf imagemagick lib32ncurses-dev \
+            lib32readline-dev lib32z1-dev libelf-dev liblz4-tool \
+            libncurses5-dev libncurses-dev libssl-dev libxml2-utils lz4 \
+            pngcrush python3 rsync schedtool squashfs-tools unzip xsltproc \
+            zip zlib1g-dev
+
+      - name: Install repo
+        shell: bash
+        run: |
+          sudo curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo \
+            -o /usr/local/bin/repo
+          sudo chmod 0755 /usr/local/bin/repo
+
+      - name: Sync OrangeFox source
+        shell: bash
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/orangefox"
+          cd "$GITHUB_WORKSPACE/orangefox"
+          repo init --depth=1 -u "$FOX_MANIFEST_URL" -b "$FOX_MANIFEST_BRANCH"
+          repo sync -c --no-clone-bundle --no-tags -j"$(nproc --all)"
+
+      - name: Install this device tree
+        shell: bash
+        run: |
+          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
+          mkdir -p "$(dirname "$tree")"
+          rm -rf "$tree"
+          mkdir -p "$tree"
+          rsync -a --exclude .git --exclude .github --exclude rom-blobs \
+            "$GITHUB_WORKSPACE/" "$tree/"
+
+      - name: Overlay ROM blobs from the fork
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
+
+          # Put ROM-specific files in rom-blobs/ in the fork using paths relative
+          # to device/xiaomi/degas. The directory is optional.
+          if [ -d "$GITHUB_WORKSPACE/rom-blobs" ]; then
+            rsync -a --exclude README.md \
+              "$GITHUB_WORKSPACE/rom-blobs/" "$tree/"
+          fi
+
+          url='${{ inputs.blob_archive_url }}'
+          if [ -n "$url" ]; then
+            archive="$RUNNER_TEMP/rom-blobs"
+            curl -fL --retry 3 "$url" -o "$archive"
+            if [ -n '${{ inputs.blob_archive_sha256 }}' ]; then
+              echo '${{ inputs.blob_archive_sha256 }}  '"$archive" | sha256sum -c -
+            fi
+            mkdir -p "$RUNNER_TEMP/blob-extract"
+            case "$url" in
+              *.zip|*.zip?*) unzip -q "$archive" -d "$RUNNER_TEMP/blob-extract" ;;
+              *) tar -xf "$archive" -C "$RUNNER_TEMP/blob-extract" ;;
+            esac
+            rsync -a "$RUNNER_TEMP/blob-extract/" "$tree/"
+          fi
+
+      - name: Apply device patches
+        shell: bash
+        working-directory: orangefox
+        run: |
+          set -euo pipefail
+          for patch in device/xiaomi/degas/patches/bootable/recovery/*.patch; do
+            if git -C bootable/recovery apply --reverse --check "$patch" 2>/dev/null; then
+              echo "already applied: $patch"
+            elif git -C bootable/recovery apply --check "$patch" 2>/dev/null; then
+              git -C bootable/recovery apply "$patch"
+            else
+              echo "patch does not apply: $patch" >&2
+              exit 1
+            fi
+          done
+
+      - name: Download matching vendor_boot
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
+          url='${{ inputs.vendor_boot_url }}'
+          if [ -n "$url" ]; then
+            curl -fL --retry 3 "$url" -o "$tree/ofox_degas-vendor_boot.img"
+          elif [ -f "$GITHUB_WORKSPACE/rom-blobs/ofox_degas-vendor_boot.img" ]; then
+            cp "$GITHUB_WORKSPACE/rom-blobs/ofox_degas-vendor_boot.img" \
+              "$tree/ofox_degas-vendor_boot.img"
+          else
+            echo 'Provide vendor_boot_url or add rom-blobs/ofox_degas-vendor_boot.img' >&2
+            exit 1
+          fi
+          if [ -n '${{ inputs.vendor_boot_sha256 }}' ]; then
+            echo '${{ inputs.vendor_boot_sha256 }}  '"$tree/ofox_degas-vendor_boot.img" | sha256sum -c -
+          fi
+
+      - name: Build OrangeFox vendor_boot
+        working-directory: orangefox
+        shell: bash
+        run: |
+          set -euo pipefail
+          source build/envsetup.sh
+          lunch ofox_degas-bp2a-eng
+          mka vendorbootimage
+
+      - name: Prepare repack inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
+          for file in goodix_cfg_group_degas.bin goodix_firmware_degas.bin; do
+            if [ ! -f "$tree/$file" ]; then
+              source_file="$(find "$tree/recovery/root" -name "$file" -type f -print -quit)"
+              [ -n "$source_file" ] && cp "$source_file" "$tree/$file"
+            fi
+            test -f "$tree/$file"
+          done
+          test -f "$tree/xiaomi_touch_common_patched.ko"
+
+      - name: Repack flashable vendor_boot
+        working-directory: orangefox/device/xiaomi/degas
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$GITHUB_WORKSPACE/orangefox/out/host/linux-x86/bin:$PATH"
+          bash patch_touch_clean.sh
+
+      - name: Generate checksums
+        working-directory: orangefox/device/xiaomi/degas
+        shell: bash
+        run: |
+          sha256sum ofox_degas-vendor_boot-clean.img \
+            "$GITHUB_WORKSPACE/orangefox/out/target/product/degas/vendor_boot.img" \
+            > SHA256SUMS
+
+      - name: Upload recovery images
+        uses: actions/upload-artifact@v4
+        with:
+          name: ofox-degas-${{ env.ROM_NAME }}-${{ github.run_number }}
+          if-no-files-found: error
+          path: |
+            orangefox/device/xiaomi/degas/ofox_degas-vendor_boot-clean.img
+            orangefox/out/target/product/degas/vendor_boot.img
+            orangefox/device/xiaomi/degas/SHA256SUMS
+          retention-days: 14

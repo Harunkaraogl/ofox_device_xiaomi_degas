@@ -60,6 +60,7 @@ recovery/tee-blobs.sha256         Checksums for bundled TEE/eSE binaries
 omapi/                            Native recovery OMAPI service
 sepolicy/                         Recovery SELinux policy
 patches/                          Upstream recovery patches
+rom-blobs/                        Optional ROM-specific blob overlay
 patch_touch_clean.sh              vendor_boot repack helper
 tools/slot_switch.py              Host-side A/B slot utility
 xiaomi_touch_common_patched.ko    Patched Goodix touch module
@@ -145,6 +146,27 @@ ofox_degas-vendor_boot-clean.img
 
 Before flashing, make sure the image fits the 64 MiB `vendor_boot` partition.
 The script prints the final size and the partition limit.
+
+## GitHub Actions builds
+
+The repository includes a manual workflow at
+`.github/workflows/build-ofox.yml`. After forking the repository, open
+**Actions → Build OrangeFox → Run workflow**. The workflow syncs the OrangeFox
+source, applies the device patches, builds `ofox_degas`, repacks `vendor_boot`
+and uploads the images and `SHA256SUMS` as an artifact.
+
+The workflow is intended for ROM-specific builds. Add files under `rom-blobs/`
+using paths relative to `device/xiaomi/degas` to override firmware, TEE files
+or kernel modules. The matching base `vendor_boot` can be committed as
+`rom-blobs/ofox_degas-vendor_boot.img`, or supplied through the
+`vendor_boot_url` input. A blob archive can be supplied through
+`blob_archive_url`; it is extracted over the device tree before the build.
+SHA-256 inputs are available for both downloads.
+
+Keep proprietary blobs in a private fork or provide them from a private,
+short-lived download URL. GitHub's regular Git limit is 100 MiB per file;
+large `vendor_boot` images should be passed as workflow inputs or stored with
+Git LFS.
 
 ## Flashing
 
