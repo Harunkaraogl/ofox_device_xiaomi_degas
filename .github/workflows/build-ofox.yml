@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
-      FOX_MANIFEST_URL: https://gitlab.com/OrangeFox/sync.git
+      FOX_MANIFEST_URL: https://gitlab.com/OrangeFox/Manifest.git
       FOX_MANIFEST_BRANCH: ${{ inputs.manifest_branch }}
       ROM_NAME: ${{ inputs.rom_name }}
 
