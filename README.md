@@ -213,3 +213,10 @@ sha256sum -c ../tee-blobs.sha256
 The device-tree files are provided under the Apache License 2.0; see
 [LICENSE](LICENSE). Components inherited from OrangeFox, TWRP, AOSP and the
 Linux kernel retain their respective upstream licenses.
+
+## Credits
+
+- [Advnirr](https://github.com/Advnirr) — original Xiaomi 14T `degas` tree:
+  [twrp_device_xiaomi_degas](https://github.com/Advnirr/twrp_device_xiaomi_degas).
+- [Dip184](https://github.com/Dip184) — decryption method and reference work:
+  [android_device_xiaomi_duchamp](https://github.com/Dip184/android_device_xiaomi_duchamp/tree/orangefox-14.1).
