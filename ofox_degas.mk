@@ -17,7 +17,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
 
 # Device
 PRODUCT_DEVICE := degas
-PRODUCT_NAME := twrp_degas
+PRODUCT_NAME := ofox_degas
 PRODUCT_BRAND := Xiaomi
 PRODUCT_MODEL := Xiaomi 14T
 PRODUCT_MANUFACTURER := Xiaomi

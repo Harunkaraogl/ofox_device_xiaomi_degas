@@ -1,127 +1,193 @@
-# TWRP Device Tree for Xiaomi 14T (`degas`)
+# OrangeFox for Xiaomi 14T (degas)
 
-![Status: Beta](https://img.shields.io/badge/Status-Beta-yellow.svg)
-![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)
-![Platform: MT6897](https://img.shields.io/badge/Platform-MT6897-green.svg)
+OrangeFox recovery device tree for the **Xiaomi 14T**, codenamed **degas**.
 
-Unofficial TWRP (Team Win Recovery Project) device tree for the **Xiaomi 14T**
-(code‑named **`degas`**, MediaTek Dimensity 8300‑Ultra `mt6897`, HyperOS 3 /
-Android 16).
+**Port creator and maintainer:** `sigmapro555eshkere`
 
-## 📌 Status: Beta
+The tree targets OrangeFox `fox_16.0` on Android 16 / BP2A and builds a
+recovery that runs from the device's A/B `vendor_boot` partition.
 
-The recovery boots and is usable for day‑to‑day work: flashing, partition
-backup/restore, wiping, and file transfer all work over a clean USB stack.
+![Platform](https://img.shields.io/badge/platform-MediaTek%20MT6897-green)
+![Android](https://img.shields.io/badge/Android-16-blue)
+![Recovery](https://img.shields.io/badge/recovery-OrangeFox-orange)
+![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey)
 
-The one thing this recovery **cannot** do is decrypt `/data`. The device uses
-File‑Based Encryption with metadata encryption (`dm-default-key`), and the
-metadata key is bound to the TEE **Root‑of‑Trust**, which is different when a
-custom recovery image is booted — so the key cannot be unwrapped from recovery.
-This is a hardware/TEE limitation, not a missing feature. The full investigation
-that established this is preserved in the
-[`fbe-decryption-research`](../../tree/fbe-decryption-research) branch.
+## Device
 
-## 🔩 Device
-
-| | |
-|---|---|
-| Model | Xiaomi 14T |
+| Property | Value |
+| --- | --- |
+| Device | Xiaomi 14T |
 | Codename | `degas` |
-| SoC | MediaTek Dimensity 8300‑Ultra (`mt6897`) |
-| Architecture | arm64 (Cortex‑A715 + Cortex‑A510) |
-| OS | HyperOS 3 (Android 16) |
-| Partitions | A/B, dynamic (super), `vendor_boot` GKI v4 |
-| Userdata FS | F2FS, FBE `aes-256-xts` + metadata encryption (`dm-default-key`) |
-| Touch | Goodix (firmware + patched `xiaomi_touch_common.ko`) |
+| SoC | MediaTek Dimensity 8300-Ultra |
+| Platform | `mt6897` |
+| Architecture | arm64 |
+| Display | 1220 × 2712 |
+| Partitions | A/B, virtual A/B, dynamic partitions |
+| Recovery location | `vendor_boot` |
+| Boot image format | GKI v4 |
+| Userdata | F2FS with FBE v2 and metadata encryption |
+| Touchscreen | Goodix |
 
-## 🛠️ Features & Hardware Support
+## Included functionality
 
-* [x] **Core boot** — GKI v4 `vendor_boot`, prebuilt kernel/DTB.
-* [x] **Display & GUI** — TWRP interface renders correctly.
-* [x] **Touchscreen** — Goodix firmware + patched `xiaomi_touch_common.ko`.
-* [x] **Partition mounting** — `xiaomi_dynamic_partitions` (super), `erofs` + `ext4` fallback.
-* [x] **Backup** — raw image backup of `boot` / `init_boot` / `vendor_boot` / `dtbo` / `super` / `vbmeta*`.
-* [x] **Restore**
-* [x] **Wipe / Format Data**
-* [x] **ADB** and **ADB sideload**
-* [x] **MTP** — browse recovery storage over USB.
-* [x] **USB‑OTG**
-* [x] **A/B slot switching** — direct `misc` `bootloader_control` write (the stock boot‑HAL path hangs in standalone recovery).
-* [x] **Other** (battery indicator)
-* [ ] **FBE `/data` decryption** — not achievable from recovery (TEE Root‑of‑Trust binding; see the [`fbe-decryption-research`](../../tree/fbe-decryption-research) branch).
+- OrangeFox recovery with the portrait HDPI theme.
+- Display, touch, brightness and battery support for the 14T.
+- Goodix firmware and a patched `xiaomi_touch_common.ko` driver.
+- Stock MT6897 vendor-ramdisk kernel modules, including display, UFS, USB and
+  TEE dependencies.
+- Dynamic-partition mounting with EROFS and ext4 fallbacks.
+- Fastbootd and A/B OTA support.
+- Backup and restore entries for `boot`, `init_boot`, `vendor_boot`, `dtbo`,
+  `super`, `vbmeta`, `vbmeta_system` and `vbmeta_vendor`.
+- ADB, ADB sideload, MTP over ConfigFS and USB OTG.
+- Direct A/B slot switching through the `misc` partition.
+- File-based encryption and metadata-decryption integration.
+- MiTEE KeyMint and Gatekeeper services, NXP Weaver, the Xiaomi secure-element
+  HAL and a native recovery OMAPI service.
+- AVB recovery image configuration and recovery-specific SELinux policy.
 
-## 📂 Repository layout
+## Source tree
 
 ```
-device/xiaomi/degas/        TWRP device tree (the part you build)
-  BoardConfig.mk            board / partition / battery / USB / AVB config
-  device.mk                 product packages
-  twrp_degas.mk             product definition (lunch target twrp_degas-eng)
-  recovery.fstab            recovery fstab (logical partitions + backup entries)
-  prebuilt/                 prebuilt boot.img, dtbo.img and dtb (build inputs)
-  recovery/root/            files baked into the recovery ramdisk
-                            (init.recovery.mt6897.rc: touch + USB ConfigFS + MTP,
-                             Goodix firmware)
-  sepolicy/                 device sepolicy
-
-patch_touch_clean.sh        post-build repack: grafts the 215 vendor kernel
-                            modules (+ patched Goodix touch driver) into the
-                            freshly built vendor_boot
-xiaomi_touch_common_patched.ko
-tools/slot_switch.py        host utility: switch the active A/B slot by writing
-                            the misc bootloader_control struct directly
+BoardConfig.mk                    Board, partition, AVB and OrangeFox settings
+device.mk                         Packages and vendor-ramdisk files
+ofox_degas.mk                     Product definition
+vendorsetup.sh                    OrangeFox target setup
+prebuilt/                         Stock boot, DTBO and device tree blob
+vendor_ramdisk/                   Stock MT6897 vendor modules and first-stage fstab
+recovery/root/                    Recovery ramdisk, fstab, firmware and TEE stack
+recovery/tee-blobs.sha256         Checksums for bundled TEE/eSE binaries
+omapi/                            Native recovery OMAPI service
+sepolicy/                         Recovery SELinux policy
+patches/                          Upstream recovery patches
+patch_touch_clean.sh              vendor_boot repack helper
+tools/slot_switch.py              Host-side A/B slot utility
+xiaomi_touch_common_patched.ko    Patched Goodix touch module
 ```
 
-> This tree is meant to be checked out inside a minimal TWRP build manifest. The
-> `.gitignore` is a whitelist: it ignores the surrounding AOSP/TWRP tree and
-> tracks only the files listed above. Built recovery images are not committed —
-> rebuild from source or use Releases.
+The tree contains source files and device-specific prebuilts. Built recovery
+images are not committed.
 
-## ⚙️ Building
+## Build requirements
 
-Use a minimal TWRP build environment, place this tree at `device/xiaomi/degas`,
-then apply the carried patches and build:
+Use an OrangeFox source tree with the Android 16 / `fox_16.0` build system and
+a synced `bootable/recovery` checkout. Place this repository at:
+
+```
+device/xiaomi/degas
+```
+
+Then run:
 
 ```bash
-./patches/apply_patches.sh        # run from the build top (where patches/ lives)
-. build/envsetup.sh
-lunch twrp_degas-eng
+source build/envsetup.sh
+lunch ofox_degas-bp2a-eng
 mka vendorbootimage
 ```
 
-`patches/apply_patches.sh` applies the one small TWRP change this device needs —
-`bootable/recovery`'s `Set_Active_Slot` is patched to switch A/B slots by writing
-the `misc` `bootloader_control` struct directly (the stock boot‑HAL path hangs in
-standalone recovery). It is idempotent and safe to re‑run.
+The product name remains `ofox_degas` because it is the product definition
+used by the OrangeFox build system.
 
-This device is `TARGET_NO_KERNEL` (it ships a prebuilt kernel), so the build
-does not produce the vendor kernel modules. After the build, run the repack to
-graft the stock modules (with the patched touch driver) into `vendor_boot`:
+### Applying the recovery patches
+
+The `patches/` directory contains:
+
+1. A direct `misc/bootloader_control` A/B slot switch implementation. It
+   avoids the boot-control HAL, which is unavailable in standalone recovery.
+2. An OrangeFox splash-screen attribution line.
+
+Apply them before building:
 
 ```bash
-./patch_touch_clean.sh        # produces twrp_degas-vendor_boot-clean.img
-fastboot flash vendor_boot twrp_degas-vendor_boot-clean.img
+./patches/apply_patches.sh
 ```
 
-(Adjust the `WORKDIR`/input paths at the top of the script if your layout
-differs. `init.recovery.mt6897.rc` and the Goodix firmware are baked into the
-device tree; only the kernel modules are grafted by the repack.)
+The helper is idempotent. It expects the target recovery checkout at
+`bootable/recovery` relative to the directory containing `patches/`. If the
+device tree is nested under another Android checkout, apply the patches from
+that checkout with `git apply` or adapt the paths to your layout.
 
-## 📸 Screenshots
+## Building the final vendor_boot image
 
-<details>
-<summary><b>Click to view</b></summary>
+This is a `TARGET_NO_KERNEL` device tree. The normal build produces the
+OrangeFox recovery ramdisk, but the stock vendor kernel modules must be carried
+into the final image. `patch_touch_clean.sh` combines:
 
-![TWRP Main Screen](screenshots/1.png)
-![TWRP Partitions / Terminal](screenshots/2.png)
+- a base `vendor_boot` containing the stock module ramdisk;
+- the freshly built OrangeFox `vendor_boot`;
+- the patched touch module and Goodix firmware.
 
-</details>
+The script requires `unpack_bootimg.py`, `mkbootimg`, `lz4` and `cpio`.
+It expects these inputs in its working directory:
 
-## ⚖️ License
+```
+ofox_degas-vendor_boot.img
+out/target/product/degas/vendor_boot.img
+xiaomi_touch_common_patched.ko
+goodix_cfg_group_degas.bin
+goodix_firmware_degas.bin
+```
 
-Licensed under the Apache License 2.0 — see the [LICENSE](LICENSE) file.
-Recovery/device‑tree pieces inherited from TWRP follow their upstream licenses
-(GPL); the AOSP makefiles are Apache‑2.0.
+The Goodix files are also kept in the recovery tree under
+`recovery/root/lib/firmware/` and `recovery/root/vendor/firmware/`.
 
----
-*Maintained by Advnirr | [advnirr.org](https://advnirr.org)*
+Run the repack step after `vendorbootimage`:
+
+```bash
+bash patch_touch_clean.sh
+```
+
+The output is:
+
+```
+ofox_degas-vendor_boot-clean.img
+```
+
+Before flashing, make sure the image fits the 64 MiB `vendor_boot` partition.
+The script prints the final size and the partition limit.
+
+## Flashing
+
+Unlock the bootloader and keep a backup of the original images before flashing.
+With the phone in fastboot mode:
+
+```bash
+fastboot flash vendor_boot ofox_degas-vendor_boot-clean.img
+fastboot reboot recovery
+```
+
+Use the image produced for the same firmware base as the device. The bundled
+vendor modules and TEE binaries come from HyperOS
+`OS3.0.306.0.WNEEUXM`.
+
+## A/B slot utility
+
+`tools/slot_switch.py` runs on the host and controls a connected device over
+ADB. It reads the standard 32-byte `bootloader_control` structure at offset
+2048 in `/dev/block/by-name/misc`.
+
+```bash
+python3 tools/slot_switch.py status
+python3 tools/slot_switch.py set a --dry-run
+python3 tools/slot_switch.py set a
+python3 tools/slot_switch.py set b
+```
+
+The device must be booted into a recovery with working ADB and sufficient
+privileges to read and write `misc`.
+
+## Verifying bundled TEE files
+
+The hashes in `recovery/tee-blobs.sha256` are relative to
+`recovery/root`:
+
+```bash
+cd recovery/root
+sha256sum -c ../tee-blobs.sha256
+```
+
+## License
+
+The device-tree files are provided under the Apache License 2.0; see
+[LICENSE](LICENSE). Components inherited from OrangeFox, TWRP, AOSP and the
+Linux kernel retain their respective upstream licenses.

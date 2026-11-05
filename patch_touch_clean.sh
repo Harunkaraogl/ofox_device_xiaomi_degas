@@ -25,9 +25,9 @@ set -e
 # out at the build top). Override with WORKDIR=/path/to/build/top if your layout
 # differs.
 WORKDIR="${WORKDIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-MODBASE="$WORKDIR/twrp_degas-vendor_boot.img"          # base: modules + proven geometry
+MODBASE="$WORKDIR/ofox_degas-vendor_boot.img"          # base: modules + proven geometry
 FRESH="$WORKDIR/out/target/product/degas/vendor_boot.img"  # fresh build: TWRP ramdisk01
-OUTIMG="$WORKDIR/twrp_degas-vendor_boot-clean.img"
+OUTIMG="$WORKDIR/ofox_degas-vendor_boot-clean.img"
 FW_CFG="$WORKDIR/goodix_cfg_group_degas.bin"
 FW_BIN="$WORKDIR/goodix_firmware_degas.bin"
 PATCHED_KO="$WORKDIR/xiaomi_touch_common_patched.ko"
@@ -46,7 +46,7 @@ WS="$WORKDIR/touch_clean_workspace"
 EXTRACTED="$WS/base_extracted"      # from MODBASE (gives geometry + ramdisk00 modules)
 FRESH_EXTRACTED="$WS/fresh_extracted"
 BASE_RD="$WS/base_ramdisk00"        # modules ramdisk unpacked
-TWRP_RD="$WS/twrp_ramdisk01"        # fresh TWRP ramdisk unpacked
+TWRP_RD="$WS/ofox_ramdisk01"        # fresh TWRP ramdisk unpacked
 
 echo "=== Cleaning workspace ==="
 rm -rf "$WS"

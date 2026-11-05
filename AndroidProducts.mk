@@ -1,5 +1,5 @@
 PRODUCT_MAKEFILES := \
-    $(LOCAL_DIR)/twrp_degas.mk
+    $(LOCAL_DIR)/ofox_degas.mk
 
 COMMON_LUNCH_CHOICES := \
-    twrp_degas-bp2a-eng
+    ofox_degas-bp2a-eng
