@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Apply BIZIM branding and the degas slot fix to an OrangeFox source tree.
+"""Apply the Amon look and the degas slot fix to an OrangeFox source tree.
 
 Usage: apply_customization.py BOOTABLE_RECOVERY_DIR
 
-Every edit requires its anchor to exist exactly once, so an upstream change
-stops the build here instead of silently producing an unbranded recovery.
+Every edit requires its anchor to exist, so an upstream change stops the build
+here instead of silently producing a partly branded recovery.
 """
 import shutil
 import sys
 from pathlib import Path
 
+import amon_theme
+
 ASSETS = Path(__file__).resolve().parent / "assets"
-THEME = Path("gui/theme/portrait_hdpi")
+THEME = amon_theme.THEME
 LOGOS = THEME / "images/SVG/Logos"
 LOGO_FILES = ("logo_o.svg", "logo_d.svg", "logo_w.svg")
 FOX_ICON = THEME / "images/SVG/Icons/fox.svg"
 SPLASH = THEME / "splash.xml"
-LANGUAGE = Path("gui/theme/common/languages/en.xml")
 PARTITION_MANAGER = Path("partitionmanager.cpp")
 
 SLOT_METHOD = "void TWPartitionManager::Set_Active_Slot(const string& Slot) {"
@@ -66,24 +67,10 @@ static bool Write_Active_Slot_To_Misc(int slot_number) {
 """
 
 
-def read_text(path):
-    return path.read_bytes().decode("utf-8")
-
-
-def write_text(path, text):
-    path.write_bytes(text.encode("utf-8"))
-
-
 def require_once(text, anchor, label):
     count = text.count(anchor)
     if count != 1:
         raise SystemExit(f"{label}: expected one anchor, found {count}: {anchor!r}")
-
-
-def replace_once(path, anchor, replacement):
-    text = read_text(path)
-    require_once(text, anchor, str(path))
-    write_text(path, text.replace(anchor, replacement))
 
 
 def copy_assets(root):
@@ -97,19 +84,16 @@ def copy_assets(root):
     shutil.copyfile(ASSETS / "fox.svg", root / FOX_ICON)
 
 
-def apply_branding(root):
-    copy_assets(root)
-    replace_once(root / SPLASH, "<text>OrangeFox</text>", "<text>BIZIM</text>")
-    replace_once(
-        root / LANGUAGE,
-        'name="twrp_watch_header">OrangeFox %fox_actual_build%',
-        'name="twrp_watch_header">Bizim Recovery %fox_actual_build%',
-    )
+def apply_splash_name(root):
+    path = root / SPLASH
+    text = amon_theme.read_text(path)
+    require_once(text, "<text>OrangeFox</text>", str(path))
+    amon_theme.write_text(path, text.replace("<text>OrangeFox</text>", "<text>AMON</text>"))
 
 
 def apply_slot_fix(root):
     path = root / PARTITION_MANAGER
-    text = read_text(path)
+    text = amon_theme.read_text(path)
     for anchor, label in ((SLOT_METHOD, "method"), (SLOT_BLOCK_START, "block start"), (SLOT_BLOCK_END, "block end")):
         require_once(text, anchor, f"slot fix {label}")
     start = text.index(SLOT_BLOCK_START)
@@ -117,16 +101,18 @@ def apply_slot_fix(root):
     if start >= end:
         raise SystemExit("slot fix: block markers are out of order")
     patched = text[:start] + SLOT_CALL + text[end:]
-    write_text(path, patched.replace(SLOT_METHOD, SLOT_HELPER + SLOT_METHOD))
+    amon_theme.write_text(path, patched.replace(SLOT_METHOD, SLOT_HELPER + SLOT_METHOD))
 
 
 def main():
     if len(sys.argv) != 2:
         raise SystemExit(__doc__)
     root = Path(sys.argv[1])
-    apply_branding(root)
+    amon_theme.apply_theme(root)
+    copy_assets(root)
+    apply_splash_name(root)
     apply_slot_fix(root)
-    print("BIZIM customization applied")
+    print("Amon customization applied")
 
 
 if __name__ == "__main__":

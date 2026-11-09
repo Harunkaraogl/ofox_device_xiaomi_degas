@@ -14,7 +14,7 @@ on:
       rom_name:
         description: Short name used in the artifact name
         required: true
-        default: bizim
+        default: amon
         type: string
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
     env:
       FOX_MANIFEST_URL: https://gitlab.com/OrangeFox/Manifest.git
       FOX_MANIFEST_BRANCH: ${{ inputs.manifest_branch || 'fox_16.0' }}
-      ROM_NAME: ${{ inputs.rom_name || 'bizim' }}
+      ROM_NAME: ${{ inputs.rom_name || 'amon' }}
 
     steps:
       - name: Check out the fork
@@ -87,7 +87,7 @@ jobs:
           rsync -a --exclude .git --exclude .github --exclude rom-blobs --exclude bizim --exclude /orangefox \
             "$GITHUB_WORKSPACE/" "$tree/"
 
-      - name: Apply BIZIM customization
+      - name: Apply Amon customization
         shell: bash
         run: python3 "$GITHUB_WORKSPACE/bizim/apply_customization.py" "$GITHUB_WORKSPACE/orangefox/bootable/recovery"
 
@@ -114,9 +114,9 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           files=(vendor_boot.img SHA256SUMS *ramdisk*.img *ramdisk*.cpio*)
-          gh release create "bizim-${GITHUB_RUN_NUMBER}" "${files[@]}" \
+          gh release create "amon-${GITHUB_RUN_NUMBER}" "${files[@]}" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "Bizim Recovery test ${GITHUB_RUN_NUMBER}" --notes "Automated test build"
+            --title "Amon Recovery test ${GITHUB_RUN_NUMBER}" --notes "Automated test build"
 
       - name: Upload recovery images
         uses: actions/upload-artifact@v4
