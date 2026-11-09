@@ -95,10 +95,13 @@ jobs:
         working-directory: orangefox
         shell: bash
         run: |
-          set -euo pipefail
-          source build/envsetup.sh
-          lunch ofox_degas-bp2a-eng
-          mka vendorbootimage
+          set +e +u +o pipefail
+          {
+            source build/envsetup.sh
+            lunch ofox_degas-bp2a-eng || exit 1
+            mka vendorbootimage
+          } 2>&1 | tee build.log
+          test "${PIPESTATUS[0]}" -eq 0
 
       - name: Generate checksums
         working-directory: orangefox/out/target/product/degas
@@ -117,6 +120,19 @@ jobs:
           gh release create "amon-${GITHUB_RUN_NUMBER}" "${files[@]}" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "Amon Recovery test ${GITHUB_RUN_NUMBER}" --notes "Automated test build"
+
+      - name: Publish failure log
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          df -h / > "$RUNNER_TEMP/disk.txt"
+          tail -n 4000 "$GITHUB_WORKSPACE/orangefox/build.log" > "$RUNNER_TEMP/build-tail.log"
+          gh release create "amon-log-${GITHUB_RUN_NUMBER}" "$RUNNER_TEMP/build-tail.log" "$RUNNER_TEMP/disk.txt" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Amon build log ${GITHUB_RUN_NUMBER}" --notes "Automated failure log"
 
       - name: Upload recovery images
         uses: actions/upload-artifact@v4
