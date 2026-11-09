@@ -81,7 +81,7 @@ jobs:
           mkdir -p "$(dirname "$tree")"
           rm -rf "$tree"
           mkdir -p "$tree"
-          rsync -a --exclude .git --exclude .github --exclude rom-blobs --exclude bizim \
+          rsync -a --exclude .git --exclude .github --exclude rom-blobs --exclude bizim --exclude /orangefox \
             "$GITHUB_WORKSPACE/" "$tree/"
 
       - name: Apply BIZIM customization
