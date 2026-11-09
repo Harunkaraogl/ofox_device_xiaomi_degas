@@ -48,7 +48,7 @@ jobs:
           sudo docker image prune -a -f || true
           sudo swapoff -a || true
           sudo rm -f /mnt/swapfile
-          sudo fallocate -l 40G /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
           sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile
           sudo swapon /mnt/swapfile
