@@ -189,3 +189,6 @@ OF_STATUS_INDENT_RIGHT := 48
 # 1 = no clock in the centre (camera hole)
 OF_CLOCK_POS := 1
 OF_ALLOW_DISABLE_NAVBAR := 0
+
+# Include every OrangeFox language
+TW_EXTRA_LANGUAGES := true

@@ -10,6 +10,7 @@ import shutil
 import sys
 from pathlib import Path
 
+import amon_pages
 import amon_theme
 
 ASSETS = Path(__file__).resolve().parent / "assets"
@@ -109,6 +110,7 @@ def main():
         raise SystemExit(__doc__)
     root = Path(sys.argv[1])
     amon_theme.apply_theme(root)
+    amon_pages.apply_pages(root)
     copy_assets(root)
     apply_splash_name(root)
     apply_slot_fix(root)

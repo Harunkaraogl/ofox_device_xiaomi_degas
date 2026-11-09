@@ -8,6 +8,7 @@ from pathlib import Path
 
 THEME = Path("gui/theme/portrait_hdpi")
 LANGUAGE = Path("gui/theme/common/languages/en.xml")
+LANGUAGE_DIRS = (Path("gui/theme/common/languages"), Path("gui/theme/extra-languages/languages"))
 ACCENTS = (("ed6f02", "f2b705"), ("d86100", "c99700"))
 KEEP_LANGUAGE_LINE = re.compile(r"team|http|websites|license|copyright|<!--", re.I)
 PAGE_LABELS = (
@@ -59,16 +60,26 @@ def apply_accent(root):
     return changed
 
 
-def rename_language_strings(root):
-    path = root / LANGUAGE
+def rename_language_file(path):
     lines = read_text(path).split("\n")
     updated = [
         line if KEEP_LANGUAGE_LINE.search(line) else line.replace("OrangeFox", "Amon")
         for line in lines
     ]
     if updated == lines:
-        raise SystemExit("no OrangeFox labels found in en.xml")
+        return False
     write_text(path, "\n".join(updated))
+    return True
+
+
+def rename_language_strings(root):
+    files = [root / LANGUAGE]
+    for directory in LANGUAGE_DIRS:
+        files.extend(sorted((root / directory).glob("*.xml")))
+    changed = sum(rename_language_file(path) for path in dict.fromkeys(files))
+    if changed == 0:
+        raise SystemExit("no OrangeFox labels found in language files")
+    return changed
 
 
 def rename_page_labels(root):
@@ -154,8 +165,9 @@ def write_splash(root):
 def apply_theme(root):
     use_black_style(root)
     accents = apply_accent(root)
-    rename_language_strings(root)
+    languages = rename_language_strings(root)
     rename_page_labels(root)
     framed = frame_icons(root)
     splash = write_splash(root)
-    print(f"Amon theme: accent files={accents} framed icons={framed} splash bytes={splash}")
+    print(f"Amon theme: accent files={accents} languages={languages} "
+          f"framed icons={framed} splash bytes={splash}")

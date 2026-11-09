@@ -25,12 +25,6 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	export FOX_VIRTUAL_AB_DEVICE=1
 	export FOX_VENDOR_BOOT_RECOVERY=1
 
-	# size: vendor_boot is 64 MiB and also carries ~20 MiB of kernel modules
-	export FOX_DRASTIC_SIZE_REDUCTION=1
-	export FOX_REMOVE_BASH=1
-	export FOX_EXCLUDE_NANO_EDITOR=1
-	export FOX_DELETE_AROMAFM=1
-	export FOX_DELETE_INITD_ADDON=1
 else
 	if [ -z "$FOX_BUILD_DEVICE" -a -z "$BASH_SOURCE" ]; then
 		echo "I: This script requires bash. Not processing the $FDEVICE $(basename $0)"
