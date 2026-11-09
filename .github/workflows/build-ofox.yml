@@ -11,23 +11,7 @@ on:
       rom_name:
         description: Short name used in the artifact name
         required: true
-        default: stock
-        type: string
-      vendor_boot_url:
-        description: URL of a matching stock vendor_boot image with its vendor ramdisk modules
-        required: false
-        type: string
-      vendor_boot_sha256:
-        description: SHA-256 of vendor_boot_url (optional but recommended)
-        required: false
-        type: string
-      blob_archive_url:
-        description: Optional URL of a tar.gz or zip archive containing device-tree-relative ROM blobs
-        required: false
-        type: string
-      blob_archive_sha256:
-        description: SHA-256 of blob_archive_url (optional)
-        required: false
+        default: bizim
         type: string
 
 permissions:
@@ -53,6 +37,12 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 1
 
+      - name: Free runner disk space
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
       - name: Install build dependencies
         shell: bash
         run: |
@@ -75,10 +65,14 @@ jobs:
       - name: Sync OrangeFox source
         shell: bash
         run: |
+          git config --global user.name "bizim-ci"
+          git config --global user.email "bizim-ci@localhost"
+          git config --global color.ui false
           mkdir -p "$GITHUB_WORKSPACE/orangefox"
           cd "$GITHUB_WORKSPACE/orangefox"
           repo init --depth=1 -u "$FOX_MANIFEST_URL" -b "$FOX_MANIFEST_BRANCH"
           repo sync -c --no-clone-bundle --no-tags -j"$(nproc --all)"
+          df -h /
 
       - name: Install this device tree
         shell: bash
@@ -87,71 +81,12 @@ jobs:
           mkdir -p "$(dirname "$tree")"
           rm -rf "$tree"
           mkdir -p "$tree"
-          rsync -a --exclude .git --exclude .github --exclude rom-blobs \
+          rsync -a --exclude .git --exclude .github --exclude rom-blobs --exclude bizim \
             "$GITHUB_WORKSPACE/" "$tree/"
 
-      - name: Overlay ROM blobs from the fork
+      - name: Apply BIZIM customization
         shell: bash
-        run: |
-          set -euo pipefail
-          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
-
-          # Put ROM-specific files in rom-blobs/ in the fork using paths relative
-          # to device/xiaomi/degas. The directory is optional.
-          if [ -d "$GITHUB_WORKSPACE/rom-blobs" ]; then
-            rsync -a --exclude README.md \
-              "$GITHUB_WORKSPACE/rom-blobs/" "$tree/"
-          fi
-
-          url='${{ inputs.blob_archive_url }}'
-          if [ -n "$url" ]; then
-            archive="$RUNNER_TEMP/rom-blobs"
-            curl -fL --retry 3 "$url" -o "$archive"
-            if [ -n '${{ inputs.blob_archive_sha256 }}' ]; then
-              echo '${{ inputs.blob_archive_sha256 }}  '"$archive" | sha256sum -c -
-            fi
-            mkdir -p "$RUNNER_TEMP/blob-extract"
-            case "$url" in
-              *.zip|*.zip?*) unzip -q "$archive" -d "$RUNNER_TEMP/blob-extract" ;;
-              *) tar -xf "$archive" -C "$RUNNER_TEMP/blob-extract" ;;
-            esac
-            rsync -a "$RUNNER_TEMP/blob-extract/" "$tree/"
-          fi
-
-      - name: Apply device patches
-        shell: bash
-        working-directory: orangefox
-        run: |
-          set -euo pipefail
-          for patch in device/xiaomi/degas/patches/bootable/recovery/*.patch; do
-            if git -C bootable/recovery apply --reverse --check "$patch" 2>/dev/null; then
-              echo "already applied: $patch"
-            elif git -C bootable/recovery apply --check "$patch" 2>/dev/null; then
-              git -C bootable/recovery apply "$patch"
-            else
-              echo "patch does not apply: $patch" >&2
-              exit 1
-            fi
-          done
-
-      - name: Download matching vendor_boot
-        shell: bash
-        run: |
-          set -euo pipefail
-          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
-          url='${{ inputs.vendor_boot_url }}'
-          if [ -n "$url" ]; then
-            curl -fL --retry 3 "$url" -o "$tree/ofox_degas-vendor_boot.img"
-          elif [ -f "$GITHUB_WORKSPACE/rom-blobs/ofox_degas-vendor_boot.img" ]; then
-            cp "$GITHUB_WORKSPACE/rom-blobs/ofox_degas-vendor_boot.img" \
-              "$tree/ofox_degas-vendor_boot.img"
-          else
-            echo 'Provide vendor_boot_url or add rom-blobs/ofox_degas-vendor_boot.img' >&2
-            exit 1
-          fi
-          if [ -n '${{ inputs.vendor_boot_sha256 }}' ]; then
-            echo '${{ inputs.vendor_boot_sha256 }}  '"$tree/ofox_degas-vendor_boot.img" | sha256sum -c -
-          fi
+        run: python3 "$GITHUB_WORKSPACE/bizim/apply_customization.py" "$GITHUB_WORKSPACE/orangefox/bootable/recovery"
 
       - name: Build OrangeFox vendor_boot
         working-directory: orangefox
@@ -162,35 +97,10 @@ jobs:
           lunch ofox_degas-bp2a-eng
           mka vendorbootimage
 
-      - name: Prepare repack inputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          tree="$GITHUB_WORKSPACE/orangefox/device/xiaomi/degas"
-          for file in goodix_cfg_group_degas.bin goodix_firmware_degas.bin; do
-            if [ ! -f "$tree/$file" ]; then
-              source_file="$(find "$tree/recovery/root" -name "$file" -type f -print -quit)"
-              [ -n "$source_file" ] && cp "$source_file" "$tree/$file"
-            fi
-            test -f "$tree/$file"
-          done
-          test -f "$tree/xiaomi_touch_common_patched.ko"
-
-      - name: Repack flashable vendor_boot
-        working-directory: orangefox/device/xiaomi/degas
-        shell: bash
-        run: |
-          set -euo pipefail
-          export PATH="$GITHUB_WORKSPACE/orangefox/out/host/linux-x86/bin:$PATH"
-          bash patch_touch_clean.sh
-
       - name: Generate checksums
-        working-directory: orangefox/device/xiaomi/degas
+        working-directory: orangefox/out/target/product/degas
         shell: bash
-        run: |
-          sha256sum ofox_degas-vendor_boot-clean.img \
-            "$GITHUB_WORKSPACE/orangefox/out/target/product/degas/vendor_boot.img" \
-            > SHA256SUMS
+        run: sha256sum vendor_boot.img > SHA256SUMS
 
       - name: Upload recovery images
         uses: actions/upload-artifact@v4
@@ -198,7 +108,8 @@ jobs:
           name: ofox-degas-${{ env.ROM_NAME }}-${{ github.run_number }}
           if-no-files-found: error
           path: |
-            orangefox/device/xiaomi/degas/ofox_degas-vendor_boot-clean.img
             orangefox/out/target/product/degas/vendor_boot.img
-            orangefox/device/xiaomi/degas/SHA256SUMS
+            orangefox/out/target/product/degas/*ramdisk*.img
+            orangefox/out/target/product/degas/*ramdisk*.cpio*
+            orangefox/out/target/product/degas/SHA256SUMS
           retention-days: 14
