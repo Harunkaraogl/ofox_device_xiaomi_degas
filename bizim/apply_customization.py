@@ -20,6 +20,9 @@ LOGO_FILES = ("logo_o.svg", "logo_d.svg", "logo_w.svg")
 FOX_ICON = THEME / "images/SVG/Icons/fox.svg"
 SPLASH = THEME / "splash.xml"
 PARTITION_MANAGER = Path("partitionmanager.cpp")
+LIBBLKID_MAKEFILE = Path("libblkid/Android.mk")
+LIBBLKID_MODULE = "LOCAL_MODULE := libblkid\n"
+CLEAR_VARS = "include $(CLEAR_VARS)"
 
 SLOT_METHOD = "void TWPartitionManager::Set_Active_Slot(const string& Slot) {"
 SLOT_BLOCK_START = "\t\tconst auto module = BootControlClient::WaitForService();\n"
@@ -105,10 +108,22 @@ def apply_slot_fix(root):
     amon_theme.write_text(path, patched.replace(SLOT_METHOD, SLOT_HELPER + SLOT_METHOD))
 
 
+def remove_duplicate_libblkid(root):
+    """Use the Soong libblkid from external/util-linux instead of the Make copy."""
+    path = root / LIBBLKID_MAKEFILE
+    text = amon_theme.read_text(path)
+    require_once(text, LIBBLKID_MODULE, str(path))
+    start = text.rfind(CLEAR_VARS, 0, text.index(LIBBLKID_MODULE))
+    if start < 0:
+        raise SystemExit("libblkid module start not found")
+    amon_theme.write_text(path, text[:start].rstrip() + "\n")
+
+
 def main():
     if len(sys.argv) != 2:
         raise SystemExit(__doc__)
     root = Path(sys.argv[1])
+    remove_duplicate_libblkid(root)
     amon_theme.apply_theme(root)
     amon_pages.apply_pages(root)
     copy_assets(root)
