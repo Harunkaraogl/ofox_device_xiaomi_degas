@@ -1,6 +1,9 @@
 name: Build OrangeFox
 
 on:
+  push:
+    branches:
+      - bizim-recovery
   workflow_dispatch:
     inputs:
       manifest_branch:
@@ -15,7 +18,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: orangefox-${{ github.repository }}-${{ github.ref }}
@@ -27,8 +30,8 @@ jobs:
     timeout-minutes: 360
     env:
       FOX_MANIFEST_URL: https://gitlab.com/OrangeFox/Manifest.git
-      FOX_MANIFEST_BRANCH: ${{ inputs.manifest_branch }}
-      ROM_NAME: ${{ inputs.rom_name }}
+      FOX_MANIFEST_BRANCH: ${{ inputs.manifest_branch || 'fox_16.0' }}
+      ROM_NAME: ${{ inputs.rom_name || 'bizim' }}
 
     steps:
       - name: Check out the fork
@@ -101,6 +104,19 @@ jobs:
         working-directory: orangefox/out/target/product/degas
         shell: bash
         run: sha256sum vendor_boot.img > SHA256SUMS
+
+      - name: Publish test build
+        working-directory: orangefox/out/target/product/degas
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(vendor_boot.img SHA256SUMS *ramdisk*.img *ramdisk*.cpio*)
+          gh release create "bizim-${GITHUB_RUN_NUMBER}" "${files[@]}" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Bizim Recovery test ${GITHUB_RUN_NUMBER}" --notes "Automated test build"
 
       - name: Upload recovery images
         uses: actions/upload-artifact@v4
